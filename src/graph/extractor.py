@@ -32,26 +32,14 @@ class Python_Extractor:
                     self.files.append(os.path.join(dirpath, filename))
 
     def track_metadata(self, file: str) -> dict:
-        """
-        Extracts metadata from a Python file, including functions, classes, imports, variables, and inheritance information.
-
-        Args:
-            file (str): The path to the Python file for metadata extraction.
-
-        Returns:
-            dict: A dictionary containing metadata information, including:
-                - "functions" (list): A list of dictionaries with function names and arguments.
-                - "classes" (list): A list of dictionaries with class names, bases, and methods.
-                - "imports" (list): A list of imported modules.
-                - "variables" (list): A list of variables found in assignment statements.
-                - "inheritance" (list): A list of base classes for inheritance relationships.
-        """
+        """Track metadata for functions, classes, imports, and variables in a Python file"""
         metadata = {
             "functions": [],
             "classes": [],
             "imports": [],
             "variables": [],
             "inheritance": [],
+            "syntax_error": False,  # Default to no syntax error
         }
 
         if not os.path.exists(file):
@@ -100,10 +88,14 @@ class Python_Extractor:
                 elif isinstance(node, ast.Assign):
                     for target in node.targets:
                         if isinstance(target, ast.Name):
-                            metadata["variables"].append(target.id)  
+                            metadata["variables"].append(target.id)
 
             return metadata
 
+        except SyntaxError as e:
+            logging.error(f"Syntax Error reading file {file}: {e}")
+            metadata["syntax_error"] = True  # Flag the file as having a syntax error
+            return metadata
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
             return metadata
@@ -151,7 +143,7 @@ class Python_Extractor:
                 - "ast_dump" (str): The AST dump of the file as a string.
         """
 
-        metadata = self.extract_metadata(file)
+        metadata = self.track_metadata(file)
         ast_dump = self.parse_file(file)
 
         return {"metadata": metadata, "ast_dump": ast_dump}

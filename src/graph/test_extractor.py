@@ -83,8 +83,9 @@ def test_track_metadata_invalid_python_file(setup_files):
     assert "imports" in metadata
     assert "variables" in metadata
     assert "inheritance" in metadata
-    assert len(metadata["functions"]) == 1
-    assert len(metadata["classes"]) == 0
+    assert "syntax_error" in metadata
+    assert len(metadata["functions"]) == 0
+    assert metadata["syntax_error"] is True
 
 
 def test_parse_file_not_exist():
