@@ -2,6 +2,10 @@ import ast
 import os
 import logging
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+
+
 class Python_Extractor:
     """Code extractor class in order to build on 
     """
@@ -62,7 +66,7 @@ class Python_Extractor:
             return [], []      
          
     def  extract_imports(self, file: str) -> list:
-        """Extract improt statements from a python file.
+        """Extract import statements from a python file.
 
         Args:
             file (str): path of the file to execute from.
