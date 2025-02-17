@@ -26,20 +26,29 @@ class Python_Extractor:
         Args:
             path (str): The directory to traverse for Python files.
         """
+
         for dirpath, _, filenames in os.walk(path):
             for filename in filenames:
                 if filename.endswith(".py"):
                     self.files.append(os.path.join(dirpath, filename))
 
     def track_metadata(self, file: str) -> dict:
-        """Track metadata for functions, classes, imports, and variables in a Python file"""
+        """
+        Track metadata for functions, classes, imports, and variables in a Python file
+
+        Args:
+            file (str): The path to the Python file to be parsed.
+        Returns:
+            str: metadata dictionary containing the data about the file.
+        """
+
         metadata = {
             "functions": [],
             "classes": [],
             "imports": [],
             "variables": [],
             "inheritance": [],
-            "syntax_error": False,  # Default to no syntax error
+            "syntax_error": False,
         }
 
         if not os.path.exists(file):
@@ -124,8 +133,8 @@ class Python_Extractor:
 
             parsed_ast = ast.parse(file_content)
             parsed_dump = ast.dump(parsed_ast, indent=4)
-
             return parsed_dump
+
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
             return
@@ -139,7 +148,7 @@ class Python_Extractor:
 
         Returns:
             dict: A dictionary containing both the metadata and the AST dump:
-                - "metadata" (dict): Metadata of the file, including functions, classes, imports, and inheritance.
+                - "metadata" (dict): Metadata of the file, including functions, classes, imports, and inheritance, and syntax.
                 - "ast_dump" (str): The AST dump of the file as a string.
         """
 
@@ -147,3 +156,23 @@ class Python_Extractor:
         ast_dump = self.parse_file(file)
 
         return {"metadata": metadata, "ast_dump": ast_dump}
+
+    def process_codebase(self) -> dict:
+        """
+        Collects data from all files within a given root directory / subdirectories (codebase)
+
+        Returns:
+            dict: A dictionary containing the data associated with a given filepath
+        """
+        dataset = {}
+
+        try:
+            self.traverse(self.root)
+            for file in self.files:
+                data = self.collect_metadata_and_ast(file)
+                dataset[file] = data
+            return dataset
+
+        except Exception as e:
+            logging.error(f"Error collecting codebase data: {e}")
+            return {}
