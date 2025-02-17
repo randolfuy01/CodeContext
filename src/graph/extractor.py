@@ -8,121 +8,122 @@ logging.basicConfig(
 
 
 class Python_Extractor:
-    """Code extractor class in order to build on"""
+    """
+    Initializes the Python_Extractor with a given root directory.
+
+    Args:
+        root (str): The root directory to start collecting Python files from.
+    """
 
     def __init__(self, root: str):
         self.root: str = root
         self.files = []
-        self.total_files = 0
-        self.total_functions = 0
-        self.total_clases = 0
-        self.total_imports = 0
 
-    def traverse(self, path: str) -> int:
-        """Collection for all of the files within a given directory
+    def traverse(self, path: str) -> None:
+        """
+        Traverses the directory at the given path and collects all Python files.
 
         Args:
-            path (_type_): starting point for the traversal, can be passed in as root if necessary
+            path (str): The directory to traverse for Python files.
         """
         for dirpath, _, filenames in os.walk(path):
-            print("Directory: ", dirpath)
             for filename in filenames:
-                self.files.append(os.path.join(dirpath, filename))
+                if filename.endswith(".py"):
+                    self.files.append(os.path.join(dirpath, filename))
 
-    def extract_functions_and_classes(self, file: str) -> tuple:
-        """Extracts functions and classes from a python file and returns their names.
+    def track_metadata(self, file: str) -> dict:
+        """
+        Extracts metadata from a Python file, including functions, classes, imports, variables, and inheritance information.
 
         Args:
-            file (str): path of the file to analyze.
+            file (str): The path to the Python file for metadata extraction.
 
         Returns:
-            tuple: lists of function names and class names.
+            dict: A dictionary containing metadata information, including:
+                - "functions" (list): A list of dictionaries with function names and arguments.
+                - "classes" (list): A list of dictionaries with class names, bases, and methods.
+                - "imports" (list): A list of imported modules.
+                - "variables" (list): A list of variables found in assignment statements.
+                - "inheritance" (list): A list of base classes for inheritance relationships.
         """
+        metadata = {
+            "functions": [],
+            "classes": [],
+            "imports": [],
+            "variables": [],
+            "inheritance": [],
+        }
 
         if not os.path.exists(file):
             logging.error(f"Error: {file} does not exist.")
-            return [], []
+            return metadata
 
         if not file.endswith(".py"):
-            logging.error(f"Error: {file} is not a python file.")
-            return [], []
+            logging.error(f"Error: {file} is not a Python file.")
+            return metadata
 
         try:
             with open(file) as f:
                 file_content = f.read()
 
             parsed_ast = ast.parse(file_content)
-            functions = []
-            classes = []
 
             for node in ast.walk(parsed_ast):
                 if isinstance(node, ast.FunctionDef):
-                    functions.append(node.name)
+                    function_info = {
+                        "name": node.name,
+                        "args": [arg.arg for arg in node.args.args],
+                    }
+                    metadata["functions"].append(function_info)
+
                 elif isinstance(node, ast.ClassDef):
-                    class_info = {"class_name": node.name, "bases": []}
+                    class_info = {
+                        "class_name": node.name,
+                        "bases": [
+                            base.id for base in node.bases if isinstance(base, ast.Name)
+                        ],
+                        "methods": [
+                            method.name
+                            for method in node.body
+                            if isinstance(method, ast.FunctionDef)
+                        ],
+                    }
+                    metadata["classes"].append(class_info)
+                    metadata["inheritance"].extend(class_info["bases"])
 
-                    for base in node.bases:
-                        if isinstance(base, ast.Name):
-                            class_info["bases"].append(base.id)
-                    classes.append(class_info)
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        metadata["imports"].append(alias.name)
+                elif isinstance(node, ast.ImportFrom):
+                    metadata["imports"].append(node.module)
 
-            return functions, classes
+                elif isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            metadata["variables"].append(target.id)  
+
+            return metadata
+
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
-            return [], []
-
-    def extract_imports(self, file: str) -> list:
-        """Extract import statements from a python file.
-
-        Args:
-            file (str): path of the file to execute from.
-
-        Returns:
-            list: list of imported module names.
-        """
-
-        if not os.path.exists(file):
-            logging.error(f"Error: {file} does not exist.")
-            return []
-
-        if not file.endswith(".py"):
-            logging.error(f"Error: {file} is not a python file.")
-            return []
-
-        try:
-            with open(file) as f:
-                file_content = f.read()
-
-                parsed_ast = ast.parse(file_content)
-                imports = []
-
-                for node in ast.walk(parsed_ast):
-                    if isinstance(node, ast.Import):
-                        for alias in node.names:
-                            imports.append(alias.name)
-                    elif isinstance(node, ast.ImportFrom):
-                        imports.append(node.module)
-                return imports
-        except Exception as e:
-            logging.error(f"Error reading file {file}: {e}")
-            return []
+            return metadata
 
     def parse_file(self, file: str) -> str:
-        """Parse a python file and return its AST dump
+        """
+        Parses a Python file and returns its AST dump as a string.
 
         Args:
-            file (str): path of the file to execute from.
+            file (str): The path to the Python file to be parsed.
 
         Returns:
-            str: file content as a dump
+            str: A string representation of the Abstract Syntax Tree (AST) dump of the Python file.
         """
-
         if not os.path.exists(file):
             logging.error(f"Error: {file} does not exist.")
             return
 
         if not file.endswith(".py"):
-            logging.error(f"Error: {file} is not a python file.")
+            logging.error(f"Error: {file} is not a Python file.")
             return
 
         try:
@@ -135,3 +136,22 @@ class Python_Extractor:
             return parsed_dump
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
+            return
+
+    def collect_metadata_and_ast(self, file: str) -> dict:
+        """
+        Collects both metadata and AST dump for a given Python file.
+
+        Args:
+            file (str): The path to the Python file for metadata and AST extraction.
+
+        Returns:
+            dict: A dictionary containing both the metadata and the AST dump:
+                - "metadata" (dict): Metadata of the file, including functions, classes, imports, and inheritance.
+                - "ast_dump" (str): The AST dump of the file as a string.
+        """
+
+        metadata = self.extract_metadata(file)
+        ast_dump = self.parse_file(file)
+
+        return {"metadata": metadata, "ast_dump": ast_dump}
