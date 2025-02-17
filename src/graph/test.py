@@ -3,6 +3,7 @@ import os
 from unittest.mock import MagicMock
 from extractor import Python_Extractor
 
+
 @pytest.fixture
 def setup_files():
     test_dir = "test_files"
@@ -13,16 +14,16 @@ def setup_files():
     non_python_file = os.path.join(test_dir, "file.txt")
     invalid_python_file = os.path.join(test_dir, "invalid.py")
 
-    with open(valid_python_file, 'w') as f:
+    with open(valid_python_file, "w") as f:
         f.write("def add(a, b):\n    return a + b")
-    
-    with open(empty_python_file, 'w') as f:
+
+    with open(empty_python_file, "w") as f:
         f.write("")
-    
-    with open(non_python_file, 'w') as f:
+
+    with open(non_python_file, "w") as f:
         f.write("Just some text\n")
-    
-    with open(invalid_python_file, 'w') as f:
+
+    with open(invalid_python_file, "w") as f:
         f.write("def add(a, b):\n    return a + ")
 
     yield {
@@ -30,37 +31,43 @@ def setup_files():
         "valid_python_file": valid_python_file,
         "empty_python_file": empty_python_file,
         "non_python_file": non_python_file,
-        "invalid_python_file": invalid_python_file
+        "invalid_python_file": invalid_python_file,
     }
 
     for file in os.listdir(test_dir):
         os.remove(os.path.join(test_dir, file))
     os.rmdir(test_dir)
 
+
 def test_parse_valid_python_file(setup_files):
-    extractor = Python_Extractor(setup_files['test_dir'])
-    result = extractor.parse_file(setup_files['valid_python_file'])
+    extractor = Python_Extractor(setup_files["test_dir"])
+    result = extractor.parse_file(setup_files["valid_python_file"])
     assert "FunctionDef" in result
 
+
 def test_parse_empty_python_file(setup_files):
-    extractor = Python_Extractor(setup_files['test_dir'])
-    result = extractor.parse_file(setup_files['empty_python_file'])
+    extractor = Python_Extractor(setup_files["test_dir"])
+    result = extractor.parse_file(setup_files["empty_python_file"])
     assert result == "Module(body=[], type_ignores=[])"
 
+
 def test_parse_non_python_file(setup_files):
-    extractor = Python_Extractor(setup_files['test_dir'])
-    result = extractor.parse_file(setup_files['non_python_file'])
+    extractor = Python_Extractor(setup_files["test_dir"])
+    result = extractor.parse_file(setup_files["non_python_file"])
     assert result is None
+
 
 def test_parse_file_not_exist():
     extractor = Python_Extractor("test_files")
     result = extractor.parse_file("non_existent_file.py")
     assert result is None
 
+
 def test_parse_invalid_python_file(setup_files):
-    extractor = Python_Extractor(setup_files['test_dir'])
-    result = extractor.parse_file(setup_files['invalid_python_file'])
+    extractor = Python_Extractor(setup_files["test_dir"])
+    result = extractor.parse_file(setup_files["invalid_python_file"])
     assert result is None
+
 
 @pytest.fixture
 def mock_python_extractor():
@@ -83,6 +90,7 @@ def mock_python_extractor():
     )
     return mock_extractor
 
+
 def test_parse_valid_python_file_with_mock(mock_python_extractor, setup_files):
     mock_python_extractor.parse_file.return_value = (
         "Module(\n    body=[\n        FunctionDef(\n"
@@ -100,28 +108,40 @@ def test_parse_valid_python_file_with_mock(mock_python_extractor, setup_files):
         "            decorator_list=[]),\n"
         "    ],\n    type_ignores=[])\n"
     )
-    
-    result = mock_python_extractor.parse_file(setup_files['valid_python_file'])
-    mock_python_extractor.parse_file.assert_called_once_with(setup_files['valid_python_file'])
+
+    result = mock_python_extractor.parse_file(setup_files["valid_python_file"])
+    mock_python_extractor.parse_file.assert_called_once_with(
+        setup_files["valid_python_file"]
+    )
     assert "FunctionDef" in result
+
 
 def test_parse_empty_python_file_with_mock(mock_python_extractor, setup_files):
     mock_python_extractor.parse_file.return_value = "Module(body=[], type_ignores=[])"
-    result = mock_python_extractor.parse_file(setup_files['empty_python_file'])
-    mock_python_extractor.parse_file.assert_called_once_with(setup_files['empty_python_file'])
+    result = mock_python_extractor.parse_file(setup_files["empty_python_file"])
+    mock_python_extractor.parse_file.assert_called_once_with(
+        setup_files["empty_python_file"]
+    )
     assert result == "Module(body=[], type_ignores=[])"
+
 
 def test_parse_non_python_file_with_mock(mock_python_extractor, setup_files):
     mock_python_extractor.parse_file.return_value = None
-    result = mock_python_extractor.parse_file(setup_files['non_python_file'])
-    mock_python_extractor.parse_file.assert_called_once_with(setup_files['non_python_file'])
+    result = mock_python_extractor.parse_file(setup_files["non_python_file"])
+    mock_python_extractor.parse_file.assert_called_once_with(
+        setup_files["non_python_file"]
+    )
     assert result is None
+
 
 def test_parse_invalid_python_file_with_mock(mock_python_extractor, setup_files):
     mock_python_extractor.parse_file.return_value = None
-    result = mock_python_extractor.parse_file(setup_files['invalid_python_file'])
-    mock_python_extractor.parse_file.assert_called_once_with(setup_files['invalid_python_file'])
+    result = mock_python_extractor.parse_file(setup_files["invalid_python_file"])
+    mock_python_extractor.parse_file.assert_called_once_with(
+        setup_files["invalid_python_file"]
+    )
     assert result is None
+
 
 def test_parse_file_not_exist_with_mock(mock_python_extractor):
     mock_python_extractor.parse_file.return_value = None
