@@ -1,18 +1,23 @@
 import ast
 import os
 import logging
+from typing import Dict, List, Union
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+"""
+Generate typing for the metadata and type safety
+"""
+FunctionInfo = Dict[str, Union[str, List[str]]]
+ClassInfo = Dict[str, Union[str, List[str]]]
+FileMetadata = Dict[str, Union[List[FunctionInfo], List[ClassInfo], List[str], bool]]
+
 
 class Python_Extractor:
     """
     Initializes the Python_Extractor with a given root directory.
-
-    Args:
-        root (str): The root directory to start collecting Python files from.
     """
 
     def __init__(self, root: str):
@@ -22,27 +27,23 @@ class Python_Extractor:
     def traverse(self, path: str) -> None:
         """
         Traverses the directory at the given path and collects all Python files.
-
-        Args:
-            path (str): The directory to traverse for Python files.
         """
-
         for dirpath, _, filenames in os.walk(path):
             for filename in filenames:
                 if filename.endswith(".py"):
                     self.files.append(os.path.join(dirpath, filename))
 
-    def track_metadata(self, file: str) -> dict:
+    def track_metadata(self, file: str) -> FileMetadata:
         """
-        Track metadata for functions, classes, imports, and variables in a Python file
+        Track metadata for functions, classes, imports, and variables in a Python file.
 
         Args:
             file (str): The path to the Python file to be parsed.
-        Returns:
-            str: metadata dictionary containing the data about the file.
-        """
 
-        metadata = {
+        Returns:
+            FileMetadata: A dictionary containing metadata about the file.
+        """
+        metadata: FileMetadata = {
             "functions": [],
             "classes": [],
             "imports": [],
@@ -67,14 +68,14 @@ class Python_Extractor:
 
             for node in ast.walk(parsed_ast):
                 if isinstance(node, ast.FunctionDef):
-                    function_info = {
+                    function_info: FunctionInfo = {
                         "name": node.name,
                         "args": [arg.arg for arg in node.args.args],
                     }
                     metadata["functions"].append(function_info)
 
                 elif isinstance(node, ast.ClassDef):
-                    class_info = {
+                    class_info: ClassInfo = {
                         "class_name": node.name,
                         "bases": [
                             base.id for base in node.bases if isinstance(base, ast.Name)
@@ -103,7 +104,7 @@ class Python_Extractor:
 
         except SyntaxError as e:
             logging.error(f"Syntax Error reading file {file}: {e}")
-            metadata["syntax_error"] = True  # Flag the file as having a syntax error
+            metadata["syntax_error"] = True
             return metadata
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
@@ -121,11 +122,11 @@ class Python_Extractor:
         """
         if not os.path.exists(file):
             logging.error(f"Error: {file} does not exist.")
-            return
+            return ""
 
         if not file.endswith(".py"):
             logging.error(f"Error: {file} is not a Python file.")
-            return
+            return ""
 
         try:
             with open(file) as f:
@@ -137,9 +138,11 @@ class Python_Extractor:
 
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
-            return
+            return ""
 
-    def collect_metadata_and_ast(self, file: str) -> dict:
+    def collect_metadata_and_ast(
+        self, file: str
+    ) -> Dict[str, Union[FileMetadata, str]]:
         """
         Collects both metadata and AST dump for a given Python file.
 
@@ -148,23 +151,24 @@ class Python_Extractor:
 
         Returns:
             dict: A dictionary containing both the metadata and the AST dump:
-                - "metadata" (dict): Metadata of the file, including functions, classes, imports, and inheritance, and syntax.
+                - "metadata" (FileMetadata): Metadata of the file, including functions, classes, imports, etc.
                 - "ast_dump" (str): The AST dump of the file as a string.
         """
-
         metadata = self.track_metadata(file)
         ast_dump = self.parse_file(file)
 
         return {"metadata": metadata, "ast_dump": ast_dump}
 
-    def process_codebase(self) -> dict:
+    def process_codebase(self) -> Dict[str, Dict[str, Union[FileMetadata, str]]]:
         """
-        Collects data from all files within a given root directory / subdirectories (codebase)
+        Collects data from all files within a given root directory / subdirectories (codebase).
 
         Returns:
-            dict: A dictionary containing the data associated with a given filepath
+            Dict: A dictionary where the keys are file paths (str) and the values are dictionaries containing:
+                - "metadata" (FileMetadata): Metadata extracted from the file (functions, classes, imports, etc.).
+                - "ast_dump" (str): The AST dump of the file as a string.
         """
-        dataset = {}
+        dataset: Dict[str, Dict[str, Union[FileMetadata, str]]] = {}
 
         try:
             self.traverse(self.root)
@@ -176,3 +180,4 @@ class Python_Extractor:
         except Exception as e:
             logging.error(f"Error collecting codebase data: {e}")
             return {}
+        
