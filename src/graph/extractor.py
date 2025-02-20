@@ -106,6 +106,7 @@ class Python_Extractor:
             logging.error(f"Syntax Error reading file {file}: {e}")
             metadata["syntax_error"] = True
             return metadata
+        
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
             return metadata
