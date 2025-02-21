@@ -40,4 +40,4 @@ Example: Imagine a codebase with several classes and methods. By parsing the AST
 Parsing Supported Languages: <img src="https://upload.wikimedia.org/wikipedia/commons/c/c3/Python-logo-notext.svg" width="25" /> (in progress: <img src="https://upload.wikimedia.org/wikipedia/commons/1/18/ISO_C%2B%2B_Logo.svg" width="25" />)
 
 System Design:
-![Diagram](https://github.com/randolfuy01/CodeContext/Design.drawio)
+![Diagram](DesignDiagram.png)
