@@ -1,4 +1,4 @@
-from extractor import Python_Extractor, FileMetadata
+from .extractor import Python_Extractor, FileMetadata
 from typing import Dict, Union
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -58,16 +58,19 @@ class Knowledge_Graph(Python_Extractor):
             logging.info("Adding class nodes to the graph")
             for file in self.data:
                 for class_info in self.data[file]["metadata"]["classes"]:
-                    class_name = f"{file}_{class_info['class_name']}"
-                    self.graph.add_node(class_name, type="class")
+                    class_name = class_info['class_name']
+                    self.graph.add_node(class_name, type="class", file=file)
+                    
                     for method_name in class_info["methods"]:
-
                         if not self.graph.has_node(method_name):
-                            self.graph.add_node(method_name, type="function")
-
+                            self.graph.add_node(method_name, type="function", object=class_name, file=file)
+                            
                         if not self.graph.has_edge(class_name, method_name):
                             self.graph.add_edge(
-                                class_name, method_name, type="belongs_to_class"
+                                class_name,
+                                method_name,
+                                type="belongs_to_class",
+                                file=file
                             )
             logging.info("Class nodes added successfully")
             return True
@@ -151,7 +154,7 @@ class Knowledge_Graph(Python_Extractor):
             self.add_function_edges()
             logging.info("Unified graph generated successfully")
             return True
-
+        
         except Exception as e:
             logging.error(f"Error generating unified graph: {e}")
             return False
@@ -207,4 +210,3 @@ class Knowledge_Graph(Python_Extractor):
         except Exception as e:
             logging.error(f"Error printing graph data: {e}")
             return False
-        
