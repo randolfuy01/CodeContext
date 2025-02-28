@@ -2,6 +2,7 @@ import ast
 import os
 import logging
 from typing import Dict, List, Union
+import pickle
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -76,7 +77,7 @@ class Python_Extractor:
 
                 elif isinstance(node, ast.ClassDef):
                     class_info: ClassInfo = {
-                        "class_name": node.name,
+                        "name": node.name,
                         "bases": [
                             base.id for base in node.bases if isinstance(base, ast.Name)
                         ],
@@ -106,7 +107,7 @@ class Python_Extractor:
             logging.error(f"Syntax Error reading file {file}: {e}")
             metadata["syntax_error"] = True
             return metadata
-        
+
         except Exception as e:
             logging.error(f"Error reading file {file}: {e}")
             return metadata
@@ -134,7 +135,7 @@ class Python_Extractor:
                 file_content = f.read()
 
             parsed_ast = ast.parse(file_content)
-            parsed_dump = ast.dump(parsed_ast, indent=4)
+            parsed_dump = pickle.dumps(parsed_ast)
             return parsed_dump
 
         except Exception as e:
@@ -181,4 +182,3 @@ class Python_Extractor:
         except Exception as e:
             logging.error(f"Error collecting codebase data: {e}")
             return {}
-        

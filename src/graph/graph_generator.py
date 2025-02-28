@@ -3,6 +3,9 @@ from typing import Dict, Union
 import networkx as nx
 import matplotlib.pyplot as plt
 import logging
+import ast
+import astor
+import pickle
 
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -15,7 +18,7 @@ class Knowledge_Graph(Python_Extractor):
     """
     Example Schema of the data extracted for a given file
     
-            {
+            [
             "path/to/file1.py": {
                 "metadata": {
                     "functions": [
@@ -23,8 +26,8 @@ class Knowledge_Graph(Python_Extractor):
                         {"name": "func2", "args": ["arg1"]}
                     ],
                     "classes": [
-                        {"class_name": "Class1", "bases": ["BaseClass"], "methods": ["method1", "method2"]},
-                        {"class_name": "Class2", "bases": [], "methods": ["method1"]}
+                        {"name": "Class1", "bases": ["BaseClass"], "methods": ["method1", "method2"]},
+                        {"name": "Class2", "bases": [], "methods": ["method1"]}
                     ],
                     "imports": ["os", "sys"],
                     "variables": ["var1", "var2"],
@@ -32,7 +35,7 @@ class Knowledge_Graph(Python_Extractor):
                     "syntax_error": False
                 },
                 "ast_dump": "Module(body=[FunctionDef(name='func1', args=arguments(args=[arg(arg='arg1', annotation=None), arg(arg='arg2', annotation=None)], vararg=None), body=[Expr(value=Call(func=Name(id='print', ctx=Load()), args=[Name(id='arg1', ctx=Load())], keywords=[])])])"
-            }
+            ]
     """
 
     def __init__(self, root_path: str):
@@ -48,56 +51,110 @@ class Knowledge_Graph(Python_Extractor):
 
         self.graph = nx.DiGraph()
 
-    def add_class_node(self) -> bool:
-        """Adds class nodes to the graph based on the given data from extraction
-
-        Returns:
-            bool: true if nodes are added successfully, false otherwise
-        """
+    def add_nodes(self) -> bool:
+        """Adds class and function nodes to the graph, ensuring no duplication and includes references to AST dump."""
         try:
-            logging.info("Adding class nodes to the graph")
-            for file in self.data:
-                for class_info in self.data[file]["metadata"]["classes"]:
-                    class_name = class_info['class_name']
-                    self.graph.add_node(class_name, type="class", file=file)
-                    
-                    for method_name in class_info["methods"]:
-                        if not self.graph.has_node(method_name):
-                            self.graph.add_node(method_name, type="function", object=class_name, file=file)
-                            
-                        if not self.graph.has_edge(class_name, method_name):
-                            self.graph.add_edge(
-                                class_name,
-                                method_name,
-                                type="belongs_to_class",
-                                file=file
-                            )
-            logging.info("Class nodes added successfully")
-            return True
-        except Exception as e:
-            logging.error(f"Error adding class nodes: {e}")
-            return False
+            logging.info("Adding function and class nodes to the graph")
 
-    def add_function_node(self) -> bool:
-        """Adds function nodes to the graph based on the given data from extraction
+            for file, file_data in self.data.items():
+                classes = file_data["metadata"]["classes"]
+                functions = file_data["metadata"]["functions"]
+                ast_dump = file_data["ast_dump"]
+                pickled_load = pickle.loads(ast_dump)
+                function_to_class = {}
 
-        Returns:
-            bool: true if nodes are added successfully, false otherwise
-        """
-        try:
-            logging.info("Adding function nodes to the graph")
+                for class_info in classes:
+                    class_name = class_info["name"]
+                    methods_in_class = class_info["methods"]
+                    for method in methods_in_class:
+                        function_to_class[method] = class_name
 
-            for file in self.data:
-                for function_info in self.data[file]["metadata"]["functions"]:
+                for class_info in classes:
+                    class_name = class_info["name"]
+                    source = self.get_class_source(pickled_load, class_name)
+                    self.graph.add_node(
+                        class_name,
+                        type="class",
+                        file=file,
+                        source=source,
+                    )
+
+                for function_info in functions:
                     function_name = function_info["name"]
-                    self.graph.add_node(function_name, type="function")
+                    class_name = function_to_class.get(function_name)
+                    source = self.get_function_source(pickled_load, function_name)
+                    if class_name:
+                        self.graph.add_node(
+                            function_name,
+                            type="function",
+                            parent_object=class_name,
+                            file=file,
+                            source=source,
+                        )
 
-            logging.info("Function nodes added successfully")
+                        self.graph.add_edge(
+                            class_name,
+                            function_name,
+                            type="belongs_to_class",
+                            file=file,
+                        )
+                    else:
+                        self.graph.add_node(
+                            function_name,
+                            type="function",
+                            object=None,
+                            file=file,
+                            source=source,
+                        )
+
+            logging.info("Nodes added successfully")
             return True
 
         except Exception as e:
-            logging.error(f"Error adding function nodes: {e}")
+            logging.error(f"Error adding nodes: {e}")
             return False
+
+    def get_function_source(self, tree: ast.AST, name: str) -> str:
+        """Recursively obtain the source code of a function by navigating the AST."""
+        if tree is None or name is None:
+            logging.error("No tree or function name provided")
+            return ""
+
+        if isinstance(tree, ast.FunctionDef) and tree.name == name:
+            return astor.to_source(tree)
+
+        # Recursively search the body
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, ast.ClassDef):
+                class_source = self.get_function_source(node, name)
+                if class_source:
+                    return class_source
+            elif isinstance(node, ast.FunctionDef):
+                if node.name == name:
+                    return astor.to_source(node)
+
+        logging.warning(f"No matching function found in file for function {name}")
+        return ""
+
+    def get_class_source(self, tree: ast.AST, name: str) -> str:
+        """Recursively obtain the source code of a class by navigating the AST."""
+        if tree is None or name is None:
+            logging.error("No tree or class name provided")
+            return ""
+
+        if isinstance(tree, ast.ClassDef) and tree.name == name:
+            return astor.to_source(tree)
+
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, ast.ClassDef):
+                class_source = self.get_class_source(node, name)
+                if class_source:
+                    return class_source
+            elif isinstance(node, ast.FunctionDef):
+                continue
+
+        logging.warning(f"No matching class found in file for Class {name}")
+        return ""
 
     def add_inheritance_edges(self) -> bool:
         """Adds inheritance edges to the graph based on the given data from extraction
@@ -109,7 +166,7 @@ class Knowledge_Graph(Python_Extractor):
             logging.info("Adding inheritance edges to the graph")
             for file in self.data:
                 for class_info in self.data[file]["metadata"]["classes"]:
-                    class_name = class_info["class_name"]
+                    class_name = class_info["name"]
                     for base in class_info["bases"]:
                         self.graph.add_edge(base, class_name, type="inheritance")
             logging.info("Inheritance edges added successfully")
@@ -148,13 +205,12 @@ class Knowledge_Graph(Python_Extractor):
         """
         try:
             logging.info("Generating unified graph")
-            self.add_class_node()
-            self.add_function_node()
+            self.add_nodes()
             self.add_inheritance_edges()
             self.add_function_edges()
             logging.info("Unified graph generated successfully")
             return True
-        
+
         except Exception as e:
             logging.error(f"Error generating unified graph: {e}")
             return False

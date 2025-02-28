@@ -13,7 +13,7 @@ logging.getLogger("numexpr").setLevel(logging.WARNING)
 
 class builder:
     """
-    Generates a knowledge graph and builds it into a Neo4j database
+    Generates a knowledge graph and builds it into a Neo4j database as well as store dump into postgres
     """
 
     def __init__(self, root_path: str, uri: str, username: str, password: str):
@@ -32,18 +32,20 @@ class builder:
 
                 for node_name, attrs in self.knowledge_graph.nodes(data=True):
                     node_type = attrs.get("type", "Node")
-                    
+
                     # Prepare dynamic properties dictionary for Cypher query
-                    properties = {key: value for key, value in attrs.items() if key != "type"}
+                    properties = {
+                        key: value for key, value in attrs.items() if key != "type"
+                    }
 
                     # Convert the properties into a Neo4j-friendly format (Cypher)
                     set_properties = ", ".join([f"{key}: ${key}" for key in properties])
-                    
+
                     # MERGE to avoid creating duplicates
                     session.run(
                         f"MERGE (n:{node_type} {{name: $name}}) SET n += {{ {set_properties} }}",
                         name=node_name,
-                        **properties
+                        **properties,
                     )
 
                 for u, v in self.knowledge_graph.edges():
@@ -60,7 +62,6 @@ class builder:
 
         except Exception as e:
             logging.error(f"Error loading NetworkX graph into Neo4j database: {e}")
-
 
     def verify_neo4j_graph(self) -> None:
         """
